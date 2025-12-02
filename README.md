@@ -1,174 +1,216 @@
-# CMake Project Template
+# cmake-install-custom-lib: ComplexNumberLib
 
-## Pre-Requisites
-- Install Visual Studio Code
-	- Add CMake Extension
-- Install Microsoft Visual Studio 2022
-	- Install v143
-- Install vcpkg or conan
+A CMake-based C++ library project demonstrating how to create, install, and consume custom libraries with both static and shared library configurations.
 
-## Setup Package Managers
-### Using vcpkg
-Don't need to do anything, just configure normally
+## Project Structure
 
-### Using conan
-```shell
-conan install . -s build_type=Debug -s compiler.cppstd=20 --build=missing # will locally build any missing deps, might take time at first call
+```
+complexNumberLib/
+├── complexNumberLib-static-shared/  # Library source and build system
+│   ├── cmake/
+│   │   ├── complexNumbersConfig.cmake.in
+│   │   └── copy-dlls.cmake          # Reusable DLL copy script
+├── complexNumberLib-consumer/       # Example consumer application
+├── generated_libs/                  # Installation directory for built libraries
+└── README.md
 ```
 
-This tutorial shows how to create a C++ "Hello World" program that uses the fmt library with CMake and vcpkg.
+## Quick Start
 
-Articles:
-- [Tutorial: Install and use packages with CMake](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started)
-- [Tutorial: Install and use packages with CMake in Visual Studio](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started-vs)
-
-## How to Run this?
-### Preparation
-- [Set Up `vcpkg`](#1-set-up-vcpkg) (Follow steps below on How to Recreate)
-- [Manually create `CMakeUserPresets.json`](#create-cmake-preset-files) in `{Project Root}/CMakeUserPresets.json`
-- Open vcpkg or
-- Install all pre-configured packages
-  ```bash
-  vcpkg install
-  ```
-
-### Run in VS Code
-- Run Task: `Configure`
-- Run Task: `Clean -> Build -> Run`
-
-> **Note:** You can check `.vscode/tasks.json` if you want to see what cmd script is being run for each task
-
-## How to Recreate
-
-### Prerequisites
-
-- A terminal
-- A C++ compiler (MSVC for Windows users)
-- CMake
-- Git
-
-### 1. Set up vcpkg
-
-#### Clone the repository
+### Build and Install the Library
 
 ```bash
-git clone https://github.com/microsoft/vcpkg.git
-
-# optionally move to C:
-mv vcpkg C:/
+# Build and install shared library (Release)
+cd complexNumberLib-static-shared
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON
+cmake --build build --config Release
+cmake --install build --prefix "../generated_libs/complexNumber" --config Release
 ```
 
-#### Run the bootstrap script
-
-Navigate to the vcpkg directory and run:
+### Build the Consumer Application
 
 ```bash
-cd vcpkg && bootstrap-vcpkg.bat
+cd complexNumberLib-consumer
+cmake -B build -DCMAKE_PREFIX_PATH="../generated_libs/complexNumber" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
-#### Integrate with Visual Studio MSBuild
+## Features
+
+- **Dual Library Support**: Build as either static or shared library using `-DENABLE_SHARED=ON/OFF`
+- **Multi-configuration**: Supports both Debug and Release builds
+- **Proper Installation**: Libraries, headers, and CMake config files installed to structured directories
+- **Reusable DLL Management**: Automatic DLL copying for Windows shared library consumers using a reusable script
+- **CMake Package Configuration**: Generated config files enable easy consumption via `find_package()`
+
+## Building All Configurations
 
 ```bash
-.\vcpkg.exe integrate install
+# One-liner to build all configurations
+cd complexNumberLib-static-shared
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=OFF && cmake --build build --config Release && cmake --install build --prefix "../generated_libs/complexNumber" --config Release
+# Repeat for other configurations as needed...
 ```
 
-### 2. Set up the project
+## Key Learning Points
 
-### 3. Add dependencies and project files
+This project demonstrates:
+1. Creating export/import macros for cross-platform DLL/SO symbol visibility
+2. Installing libraries with proper CMake package configuration
+3. Consuming installed libraries via `find_package()`
+4. **Reusable automatic DLL management** for Windows shared libraries
+5. Multi-configuration (Debug/Release) support
 
-#### Create manifest file
+## Reusable DLL Copy Script
 
-- create `vcpkg.json` at root of project, add all needed dependencies
+The project includes a reusable CMake script for automatically copying DLL files on Windows:
 
-```json
-{
-    "dependencies": [
-        "fmt",
-        "paho-mqttpp3",
-        "cppwinrt"
-    ]
-}
-```
+### `copy-dlls.cmake` - Usage in Consumer Projects
 
-#### Create CMakeLists.txt
+Save this script in your project's `cmake/` directory and use it like this:
 
 ```cmake
-cmake_minimum_required(VERSION 3.10)
+# 1. Include the script in your CMakeLists.txt
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(copy-dlls)
 
-project(HelloWorld)
-
-set(CMAKE_CXX_STANDARD 17)
-
-find_package(fmt CONFIG REQUIRED)
-find_package(PahoMqttCpp CONFIG REQUIRED)
-find_package(cppwinrt CONFIG REQUIRED)
-
-add_executable(HelloWorld helloworld.cpp)
-
-target_link_libraries(HelloWorld
-    PRIVATE
-        windowsapp # REQUIRED!
-        fmt::fmt
-        PahoMqttCpp::paho-mqttpp3
-        Microsoft::CppWinRT
+# 2. After linking with a shared library, call the function
+copy_dlls_for_target(
+    TARGET ${PROJECT_NAME}          # Your executable target
+    LIBRARY_TARGET library::target  # Imported library target (from find_package)
+    DLL_NAME "mylibrary"            # Optional: custom DLL base name
+    DEBUG_POSTFIX "d"               # Optional: debug postfix (default: "d")
 )
 ```
 
-#### Include all vcpkg headers
+### Full Example for Different Projects
 
-```cpp
-#include <fmt/core.h>
-#include <winrt/base.h>
-#include <mqtt/async_client.h>
-// ...
+```cmake
+# In your consumer project's CMakeLists.txt
+cmake_minimum_required(VERSION 3.23)
 
-int main()
-{
-    // ...
-}
+project(MyApp)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(copy-dlls)
+
+# Find and use any installed library
+find_package(SomeLibrary REQUIRED)
+find_package(AnotherLibrary REQUIRED)
+
+add_executable(${PROJECT_NAME} main.cpp)
+
+# Link with libraries
+target_link_libraries(${PROJECT_NAME} 
+    PRIVATE 
+        SomeLibrary::SomeLibrary
+        AnotherLibrary::AnotherLibrary
+)
+
+# Automatically copy DLLs for both libraries
+copy_dlls_for_target(
+    TARGET ${PROJECT_NAME}
+    LIBRARY_TARGET SomeLibrary::SomeLibrary
+)
+
+copy_dlls_for_target(
+    TARGET ${PROJECT_NAME}
+    LIBRARY_TARGET AnotherLibrary::AnotherLibrary
+    DLL_NAME "another"        # If DLL has different base name
+    DEBUG_POSTFIX "_debug"    # If using custom debug postfix
+)
 ```
 
-#### Create CMake preset files
+### Script Features
 
-**CMakePresets.json:**
+- **Automatic detection**: Identifies shared libraries automatically
+- **Multi-configuration support**: Handles Debug/Release builds correctly
+- **Customizable**: Optional parameters for different DLL naming conventions
+- **Cross-project compatible**: Works with any imported CMake target
+- **Informative**: Provides clear status messages
 
-```json
-{
-  "version": 2,
-  "configurePresets": [
-    {
-      "name": "my-vcpkg-cmake-preset",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      }
-    }
-  ]
-}
+## Usage in Other Projects
+
+### 1. Consuming the ComplexNumbers Library
+After installation, consume the library in your CMake projects:
+
+```cmake
+find_package(complexNumbers REQUIRED)
+target_link_libraries(your_target PRIVATE complexNumbers::complexNumbers)
 ```
 
-> **Note:** For a more advanced `CMakePresets.json`, check out one in thsi project
+### 2. Using the Reusable DLL Script
+Copy the `copy-dlls.cmake` script to your project and include it:
 
-**CMakeUserPresets.json:**
-
-```json
-{
-  "version": 2,
-  "configurePresets": [
-    {
-      "name": "default",
-      "inherits": "my-vcpkg-cmake-preset",
-      "environment": {
-        "VCPKG_ROOT": "<path to vcpkg>" // "VCPKG_ROOT": "C:/vcpkg"
-      }
-    }
-  ]
-}
+```bash
+# Copy the reusable script to your project
+cp path/to/complexNumberLib/static-shared/cmake/copy-dlls.cmake your-project/cmake/
 ```
 
-> **Note:** Replace `<path to vcpkg>` with your actual vcpkg installation path. Don't commit CMakeUserPresets.json to version control.
+Then use it for any shared library dependency in your project.
 
-## References
+## Troubleshooting
 
-- (vcpkg integration with CMake projects)[https://learn.microsoft.com/en-us/vcpkg/users/buildsystems/cmake-integration]
+If DLL copying doesn't work:
+1. Check that the library is actually built as shared (`-DENABLE_SHARED=ON`)
+2. Verify the library target name is correct
+3. Check debug messages for DLL path information
+4. Ensure `find_package()` successfully found the library
+
+## Detailed Build & Install cmake calls
+
+```bash
+cd complexNumberLib-c-style
+
+ && cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON
+ && cmake --build build --config Release
+ && cmake --install build --prefix "..\generated_libs\complexNumber" --config Release
+```
+
+Debug type
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_SHARED=ON
+ && cmake --build build --config Debug
+ && cmake --install build --prefix "..\generated_libs\complexNumber" --config Debug
+```
+
+### Consumer Build
+
+```bash
+cd complexNumberLib-c-style-consumer
+
+cmake -B build -DCMAKE_PREFIX_PATH="../generated_libs/complexNumber" -DCMAKE_BUILD_TYPE=Release
+ && cmake --build build --config Release
+```
+
+### All Build
+
+One Liner
+```bash
+cd complexNumberLib-c-style
+
+ && cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=OFF
+ && cmake --build build --config Release
+ && cmake --install build --prefix "..\generated_libs\complexNumber" --config Release
+
+ && cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_SHARED=OFF
+ && cmake --build build --config Debug
+ && cmake --install build --prefix "..\generated_libs\complexNumber" --config Debug
+
+ && cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_SHARED=ON
+ && cmake --build build --config Release
+ && cmake --install build --prefix "..\generated_libs\complexNumber" --config Release
+
+ && cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_SHARED=ON
+ && cmake --build build --config Debug
+ && cmake --install build --prefix "..\generated_libs\complexNumber" --config Debug
+
+ && cd .. && cd complexNumberLib-c-style-consumer
+
+ && cmake -B build -DCMAKE_PREFIX_PATH="../generated_libs/complexNumber" -DCMAKE_BUILD_TYPE=Release
+ && cmake --build build --config Release
+
+ && cmake -B build -DCMAKE_PREFIX_PATH="../generated_libs/complexNumber" -DCMAKE_BUILD_TYPE=Debug
+ && cmake --build build --config Debug
+```
+
+reference: https://cfd.university/learn/automating-cfd-solver-and-library-compilation-using-cmake/how-to-compile-install-and-use-custom-libraries-with-cmake/
