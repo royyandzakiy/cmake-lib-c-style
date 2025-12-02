@@ -6,5 +6,5 @@ target_sources(${CMAKE_PROJECT_NAME}
   BASE_DIRS ${PROJECT_SOURCE_DIR}
   FILES 
     ${CMAKE_CURRENT_SOURCE_DIR}/complexNumbersImpl.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/complexNumbers.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/complexNumbers.h
 )

@@ -64,7 +64,7 @@ if(NOT CMAKE_VERSION VERSION_LESS "3.23.0")
       FILE_SET "HEADERS"
       TYPE "HEADERS"
       BASE_DIRS "${_IMPORT_PREFIX}/include"
-      FILES "${_IMPORT_PREFIX}/include/complexNumberLib/complexNumbersImpl.hpp" "${_IMPORT_PREFIX}/include/complexNumberLib/complexNumbers.hpp"
+      FILES "${_IMPORT_PREFIX}/include/complexNumberLib/complexNumbersImpl.hpp" "${_IMPORT_PREFIX}/include/complexNumberLib/complexNumbers.h"
   )
 else()
   set_property(TARGET complexNumbers::complexNumbers

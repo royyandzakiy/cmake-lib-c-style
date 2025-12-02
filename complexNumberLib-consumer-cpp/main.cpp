@@ -1,5 +1,5 @@
 #include <iostream>
-#include "complexNumberLib/complexNumbers.hpp"
+#include "complexNumberLib/complexNumbers.h"
 
 int main() {
     // Create complex numbers
