@@ -1,6 +1,6 @@
 const std = @import("std");
 const c = @cImport({
-    @cInclude("complexNumbers.h");
+    @cInclude("../generated_libs/complexNumber/include/complexNumberLib/complexNumbers.h");
 });
 
 const BUFFER_SIZE = 100;
