@@ -1,6 +1,7 @@
 # Rust
 
 Build & Run
+Apparently, the .dll needs to be inside the rust target/{profile} folder. if not, the rust program will fail to run
 
 ```bash
 # Debug
